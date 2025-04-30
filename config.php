@@ -1,8 +1,8 @@
 <?php
-$host = "sql12.freesqldatabase.com";
-$db_user = "sql12776136";      // 회원가입 시 입력한 사용자 이름
-$db_pass = "R2jJ6nh555";    // 회원가입 시 입력한 비밀번호
-$db_name = "sql12776136";  // 회원가입 시 입력한 데이터베이스 이름
+$host = "sql305.infinityfree.com";
+$db_user = "if0_38868400";      // 회원가입 시 입력한 사용자 이름
+$db_pass = "b9f97MTTk87w";    // 회원가입 시 입력한 비밀번호
+$db_name = "if0_38868400_calendar ";  // 회원가입 시 입력한 데이터베이스 이름
 
 $conn = new mysqli($host, $db_user, $db_pass, $db_name);
 $conn->set_charset("utf8");
