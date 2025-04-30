@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <title>로그인</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      body {
+        font-family: sans-serif;
+        background-color: #f2f2f2;
+        text-align: center;
+        padding: 40px;
+      }
+      .form-box {
+        background: white;
+        padding: 30px;
+        border-radius: 10px;
+        max-width: 400px;
+        margin: 0 auto;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+      }
+      input {
+        width: 100%;
+        padding: 10px;
+        margin: 10px 0;
+      }
+      button {
+        padding: 10px 20px;
+        background-color: #4caf50;
+        color: white;
+        border: none;
+        cursor: pointer;
+      }
+      a {
+        display: block;
+        margin-top: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="form-box">
+      <h2>로그인</h2>
+      <input type="text" id="username" placeholder="아이디" />
+      <input type="password" id="password" placeholder="비밀번호" />
+      <button onclick="login()">로그인</button>
+      <a href="register.html">회원가입</a>
+    </div>
+
+    <script>
+      function login() {
+        const id = document.getElementById('username').value.trim();
+        const pw = document.getElementById('password').value.trim();
+
+        if (!id || !pw) return alert('아이디와 비밀번호를 입력하세요.');
+
+        const data = new URLSearchParams();
+        data.append('username', id);
+        data.append('password', pw);
+
+        fetch('login.php', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: data.toString(),
+        })
+          .then((res) => res.json())
+          .then((result) => {
+            if (result.success) {
+              sessionStorage.setItem('user_id', result.user_id);
+              alert('로그인 성공');
+              location.href = 'index.html';
+            } else {
+              alert('실패: ' + result.message);
+            }
+          });
+      }
+    </script>
+  </body>
+</html>

@@ -1,0 +1,341 @@
+<!-- index.html - 일정관리 웹앱 전체 기능 포함 버전 -->
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <title>일정관리 웹앱</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="manifest" href="manifest.json" />
+    <meta name="theme-color" content="#4CAF50" />
+    <script>
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('service-worker.js').then(() => {
+          console.log('서비스워커 등록됨');
+        });
+      }
+    </script>
+
+    <style>
+      body {
+        font-family: sans-serif;
+        background-color: #f4f4f4;
+        text-align: center;
+        margin: 0;
+        padding: 0;
+      }
+      .calendar {
+        max-width: 800px;
+        margin: 30px auto;
+        background: white;
+        border-radius: 10px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+      }
+      .calendar-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+      }
+      .calendar-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+      }
+      .day,
+      .day-name {
+        border: 1px solid #ddd;
+        padding: 10px;
+        height: 120px;
+        position: relative;
+        overflow-y: auto;
+      }
+      .day-name {
+        background-color: #f0f0f0;
+        font-weight: bold;
+      }
+      .event {
+        background: #4caf50;
+        color: white;
+        font-size: 12px;
+        padding: 4px;
+        margin-top: 4px;
+        border-radius: 4px;
+        cursor: pointer;
+        position: relative;
+      }
+      .event[data-type='완료'] {
+        background: gray;
+      }
+      .event .label {
+        font-weight: bold;
+        font-size: 11px;
+        margin-right: 5px;
+      }
+      .delete-btn {
+        position: absolute;
+        top: 2px;
+        right: 2px;
+        font-size: 10px;
+        background: red;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        display: none;
+        cursor: pointer;
+      }
+      .event:hover .delete-btn {
+        display: block;
+      }
+      #popup {
+        display: none;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: white;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 0 15px rgba(0, 0, 0, 0.3);
+        z-index: 999;
+        width: 300px;
+      }
+      #popup input,
+      #popup textarea {
+        width: 100%;
+        margin-bottom: 10px;
+        padding: 6px;
+        box-sizing: border-box;
+      }
+      .type-buttons {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 10px;
+      }
+      .type-buttons button {
+        width: 48%;
+        padding: 6px;
+        font-size: 14px;
+        cursor: pointer;
+      }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+  </head>
+  <body>
+    <div class="calendar">
+      <div class="calendar-header">
+        <button id="prevMonth">&lt;</button>
+        <h2 id="monthYear"></h2>
+        <button id="nextMonth">&gt;</button>
+      </div>
+      <div class="calendar-grid" id="dayNames">
+        <div class="day-name">일</div>
+        <div class="day-name">월</div>
+        <div class="day-name">화</div>
+        <div class="day-name">수</div>
+        <div class="day-name">목</div>
+        <div class="day-name">금</div>
+        <div class="day-name">토</div>
+      </div>
+      <div class="calendar-grid" id="calendarDays"></div>
+    </div>
+
+    <div id="popup">
+      <h3 id="popup-date"></h3>
+      <input type="text" id="event-title" placeholder="제목" />
+      <textarea id="event-detail" placeholder="상세 내용"></textarea>
+      <div class="type-buttons">
+        <button id="btn-scheduled" data-type="일정">일정</button>
+        <button id="btn-completed" data-type="완료">완료</button>
+      </div>
+      <input type="hidden" id="event-id" />
+      <button id="save-event">저장</button>
+      <button onclick="closePopup()">닫기</button>
+    </div>
+
+    <script>
+      const userId = sessionStorage.getItem('user_id');
+      if (!userId) {
+        alert('로그인이 필요합니다.');
+        location.href = 'login.html';
+      }
+      let currentMonth = new Date().getMonth();
+      let currentYear = new Date().getFullYear();
+      let selectedDate = null;
+      let selectedType = '일정';
+      let editingId = null;
+
+      document.getElementById('btn-scheduled').onclick = () =>
+        (selectedType = '일정');
+      document.getElementById('btn-completed').onclick = () =>
+        (selectedType = '완료');
+
+      document.getElementById('save-event').onclick = () => {
+        const title = document.getElementById('event-title').value.trim();
+        const detail = document.getElementById('event-detail').value.trim();
+        const eventId = document.getElementById('event-id').value;
+        const dateKey = selectedDate.toISOString().split('T')[0];
+        if (!title) return alert('제목을 입력하세요');
+
+        const body = new URLSearchParams();
+        if (eventId) body.append('event_id', eventId);
+        body.append('user_id', userId);
+        body.append('event_date', dateKey);
+        body.append('title', title);
+        body.append('detail', detail);
+        body.append('type', selectedType);
+
+        fetch(eventId ? 'update_event.php' : 'add_event.php', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: body.toString(),
+        })
+          .then((res) => res.text())
+          .then(() => {
+            closePopup();
+            renderCalendar(currentMonth, currentYear);
+          });
+      };
+
+      function renderCalendar(month, year) {
+        const calendarDays = document.getElementById('calendarDays');
+        calendarDays.innerHTML = '';
+        document.getElementById('monthYear').textContent = `${year}년 ${
+          month + 1
+        }월`;
+
+        const firstDay = new Date(year, month, 1).getDay();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+        for (let i = 0; i < firstDay; i++) {
+          const empty = document.createElement('div');
+          empty.className = 'day';
+          calendarDays.appendChild(empty);
+        }
+
+        for (let day = 1; day <= daysInMonth; day++) {
+          const date = new Date(year, month, day);
+          const dateKey = date.toISOString().split('T')[0];
+          const cell = document.createElement('div');
+          cell.className = 'day';
+          cell.dataset.date = dateKey;
+
+          const label = document.createElement('div');
+          label.textContent = day;
+          label.style.fontWeight = 'bold';
+          cell.appendChild(label);
+
+          const list = document.createElement('div');
+          list.className = 'event-list';
+          list.id = `list-${dateKey}`;
+          cell.appendChild(list);
+
+          cell.addEventListener('click', (e) => {
+            if (e.detail === 1 && !e.target.classList.contains('delete-btn')) {
+              selectedDate = date;
+              editingId = null;
+              document.getElementById('event-title').value = '';
+              document.getElementById('event-detail').value = '';
+              document.getElementById('event-id').value = '';
+              selectedType = '일정';
+              document.getElementById('popup-date').textContent = `${year}년 ${
+                month + 1
+              }월 ${day}일`;
+              document.getElementById('popup').style.display = 'block';
+            }
+          });
+
+          calendarDays.appendChild(cell);
+        }
+
+        fetch(
+          `get_events.php?user_id=${userId}&year=${year}&month=${month + 1}`
+        )
+          .then((res) => res.json())
+          .then((data) => {
+            for (const [date, items] of Object.entries(data)) {
+              const container = document.getElementById(`list-${date}`);
+              if (!container) continue;
+
+              items.forEach((item, idx) => {
+                const div = document.createElement('div');
+                div.className = 'event';
+                div.dataset.id = item.id;
+                div.dataset.type = item.type;
+                div.innerHTML = `<span class='label'>${idx + 1}. ${
+                  item.type
+                }</span> ${item.title}`;
+
+                div.ondblclick = () => {
+                  selectedDate = new Date(date);
+                  editingId = item.id;
+                  document.getElementById('event-title').value = item.title;
+                  document.getElementById('event-detail').value = item.detail;
+                  document.getElementById('event-id').value = item.id;
+                  selectedType = item.type;
+                  document.getElementById('popup-date').textContent = date;
+                  document.getElementById('popup').style.display = 'block';
+                };
+
+                const btn = document.createElement('button');
+                btn.className = 'delete-btn';
+                btn.textContent = '삭제';
+                btn.onclick = (e) => {
+                  e.stopPropagation();
+                  if (confirm('정말 삭제하시겠습니까?')) {
+                    fetch('delete_event.php', {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                      },
+                      body: `event_id=${item.id}`,
+                    }).then(() => renderCalendar(currentMonth, currentYear));
+                  }
+                };
+
+                div.appendChild(btn);
+                container.appendChild(div);
+              });
+
+              Sortable.create(container, {
+                animation: 100,
+                onEnd: (evt) => {
+                  const orderData = Array.from(container.children).map(
+                    (el, i) => ({ id: el.dataset.id, order: i + 1 })
+                  );
+                  fetch('update_order.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(orderData),
+                  });
+                },
+              });
+            }
+          });
+      }
+
+      document.getElementById('prevMonth').onclick = () => {
+        currentMonth--;
+        if (currentMonth < 0) {
+          currentMonth = 11;
+          currentYear--;
+        }
+        renderCalendar(currentMonth, currentYear);
+      };
+
+      document.getElementById('nextMonth').onclick = () => {
+        currentMonth++;
+        if (currentMonth > 11) {
+          currentMonth = 0;
+          currentYear++;
+        }
+        renderCalendar(currentMonth, currentYear);
+      };
+
+      function closePopup() {
+        document.getElementById('popup').style.display = 'none';
+      }
+
+      renderCalendar(currentMonth, currentYear);
+    </script>
+  </body>
+</html>

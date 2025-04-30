@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <title>회원가입</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      body {
+        font-family: sans-serif;
+        background-color: #f2f2f2;
+        text-align: center;
+        padding: 40px;
+      }
+      .form-box {
+        background: white;
+        padding: 30px;
+        border-radius: 10px;
+        max-width: 400px;
+        margin: 0 auto;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+      }
+      input {
+        width: 100%;
+        padding: 10px;
+        margin: 10px 0;
+      }
+      button {
+        padding: 10px 20px;
+        background-color: #4caf50;
+        color: white;
+        border: none;
+        cursor: pointer;
+      }
+      a {
+        display: block;
+        margin-top: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="form-box">
+      <h2>회원가입</h2>
+      <input type="text" id="username" placeholder="아이디" />
+      <input type="password" id="password" placeholder="비밀번호" />
+      <input type="password" id="confirm" placeholder="비밀번호 확인" />
+      <input type="text" id="nickname" placeholder="닉네임" />
+      <button onclick="register()">가입하기</button>
+      <a href="login.html">로그인하기</a>
+    </div>
+
+    <script>
+      function register() {
+        const id = document.getElementById('username').value.trim();
+        const pw = document.getElementById('password').value.trim();
+        const cf = document.getElementById('confirm').value.trim();
+        const nick = document.getElementById('nickname').value.trim();
+
+        if (!id || !pw || !cf || !nick) return alert('모든 항목을 입력하세요.');
+        if (pw !== cf) return alert('비밀번호가 일치하지 않습니다.');
+
+        const data = new URLSearchParams();
+        data.append('username', id);
+        data.append('password', pw);
+        data.append('nickname', nick);
+
+        fetch('register.php', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: data.toString(),
+        })
+          .then((res) => res.text())
+          .then((msg) => {
+            if (msg === 'success') {
+              alert('가입 성공! 로그인해주세요.');
+              location.href = 'login.html';
+            } else {
+              alert('가입 실패: ' + msg);
+            }
+          });
+      }
+    </script>
+  </body>
+</html>
